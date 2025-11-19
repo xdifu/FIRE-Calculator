@@ -135,10 +135,14 @@ const calculateFIRE_AU = (params: FinancialParams, options: { includeTrend?: boo
   const discountedPostNeed = postNeedAtAccess / (discountFactor || 1);
   const projectedSuperAtRetirement = projectedSuperAtAccess / (discountFactor || 1);
 
+  // 最低“总需求”只取决于消费路径本身：
+  // 退休起点需要的总资产 = 桥梁期需求 + 解锁后需求（都折现到退休年龄）。
+  // Super 余额只影响：其中有多少可以由 Super 覆盖，剩下多少需要靠可支配资产去补。
+  const minimalTotalTargetAtRetirement = bridgeCapitalNeeded + discountedPostNeed;
+
   const requiredLiquidWealth = bridgeCapitalNeeded + Math.max(0, discountedPostNeed - projectedSuperAtRetirement);
-  const totalTargetAtRetirement = requiredLiquidWealth + projectedSuperAtRetirement;
   const inflationDiscount = Math.pow(1 + inflationRate / 100, Math.max(0, retirementAge - currentAge));
-  const requiredWealthPV = totalTargetAtRetirement / (inflationDiscount || 1);
+  const requiredWealthPV = minimalTotalTargetAtRetirement / (inflationDiscount || 1);
 
   // Now solve for Monthly Savings to reach RequiredLiquidWealth
   const { initialMonthlySavings, accumulationData, success } = calculateAccumulationPath(
@@ -151,7 +155,8 @@ const calculateFIRE_AU = (params: FinancialParams, options: { includeTrend?: boo
   ) : [];
 
   return {
-    requiredWealth: Math.round(totalTargetAtRetirement),
+    // FIRE 目标显示“最低总资产需求”，不随 Super 超额而增加。
+    requiredWealth: Math.round(minimalTotalTargetAtRetirement),
     requiredWealthPV: Math.round(requiredWealthPV),
     firstYearSavingsMonthly: Math.round(initialMonthlySavings),
     simulationData: simulation,
