@@ -30,7 +30,7 @@ const RangeInput = memo(({
   const theme = colors[variant];
 
   return (
-    <div className="mb-6 group select-none">
+    <div className="mb-6 group select-none" style={{ touchAction: 'none' }}>
       <div className="flex justify-between items-end mb-3">
         <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest transition-colors group-hover:text-slate-600">{label}</label>
         <div className="flex items-baseline gap-1">
@@ -127,6 +127,115 @@ const ControlPanel = memo(({
   );
 });
 
+// --- Dashboard Component (Memoized) ---
+const Dashboard = memo(({ result, retirementAge, deathAge, setRetirementAge, formatCNY }: any) => {
+  return (
+    <div className="lg:col-span-9 space-y-8">
+      {/* 1. KPI CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-1">
+          <KPICard
+            label="FIRE 目标资产 (购买力)"
+            value={formatCNY(result.requiredWealthPV)}
+            subvalue="这是您今天需要拥有的“购买力”总额"
+            icon={Sparkles}
+            colorClass="bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-xl shadow-indigo-500/20"
+            textClass="text-white"
+          />
+        </div>
+        <div className="md:col-span-1">
+          <KPICard
+            label="名义目标 (账户余额)"
+            value={formatCNY(result.requiredWealth)}
+            subvalue={`${retirementAge}岁时，银行卡里显示的数字`}
+            icon={ArrowRight}
+          />
+        </div>
+        <div className="md:col-span-1">
+          <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl shadow-sm border border-white/50 h-full flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-all">
+            <div className="absolute -right-6 -top-6 w-32 h-32 bg-emerald-400/10 rounded-full blur-3xl group-hover:bg-emerald-400/20 transition-colors"></div>
+            <div className="relative z-10">
+              <div className="flex justify-between items-start mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-800/70">即刻行动</span>
+                <TrendingUp className="w-4 h-4 text-emerald-600/60" />
+              </div>
+              <div className="text-3xl font-mono font-bold tracking-tighter text-emerald-600 mb-1">
+                ¥{result.firstYearSavingsMonthly.toLocaleString()}
+              </div>
+              <div className="text-xs font-medium text-slate-500 leading-relaxed">
+                若现在资产为0，本月需存下金额 <br />(假设薪资随经验增长)
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. PRIMARY VISUALIZATION */}
+      <div className="bg-white/60 backdrop-blur-md rounded-3xl shadow-sm border border-white/50 overflow-hidden transition-all hover:shadow-md">
+        <div className="p-6 border-b border-slate-100/50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg">
+                <Layers className="w-4 h-4" />
+              </div>
+              财富积累路径
+            </h2>
+            <p className="text-xs text-slate-500 mt-1 ml-9">复利效应可视化：蓝色为本金投入，紫色为市场赠予的收益</p>
+          </div>
+          <div className="flex gap-4 text-xs bg-slate-50/50 px-3 py-1.5 rounded-full border border-slate-100">
+            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div><span className="text-slate-600 font-medium">本金投入</span></div>
+            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]"></div><span className="text-slate-600 font-medium">复利收益</span></div>
+          </div>
+        </div>
+        <div className="p-6">
+          <AccumulationChart data={result.accumulationData} />
+        </div>
+      </div>
+
+      {/* 3. SECONDARY VISUALIZATIONS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* Trend Analysis */}
+        <div className="bg-white/60 backdrop-blur-md rounded-3xl shadow-sm border border-white/50 overflow-hidden flex flex-col transition-all hover:shadow-md">
+          <div className="p-6 border-b border-slate-100/50">
+            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
+                <TrendingDown className="w-4 h-4" />
+              </div>
+              退休年龄敏感度
+            </h2>
+            <p className="text-xs text-slate-500 mt-1 ml-9">晚退几年能少存多少？(点击图表快速切换)</p>
+          </div>
+          <div className="p-6 flex-1 relative">
+            <RetirementTrendChart
+              data={result.trendData}
+              currentRetirementAge={retirementAge}
+              onSelect={setRetirementAge}
+            />
+          </div>
+        </div>
+
+        {/* Depletion Analysis */}
+        <div className="bg-white/60 backdrop-blur-md rounded-3xl shadow-sm border border-white/50 overflow-hidden flex flex-col transition-all hover:shadow-md">
+          <div className="p-6 border-b border-slate-100/50">
+            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg">
+                <PieChart className="w-4 h-4" />
+              </div>
+              退休资金消耗推演
+            </h2>
+            <p className="text-xs text-slate-500 mt-1 ml-9">安全边界测试：能否平稳支撑至 {deathAge} 岁？</p>
+          </div>
+          <div className="p-6 flex-1">
+            <WealthDepletionChart data={result.simulationData} retirementAge={retirementAge} />
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+});
+
 // --- Main Application ---
 
 const App: React.FC = () => {
@@ -148,11 +257,13 @@ const App: React.FC = () => {
   }, { includeTrend: false }));
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
 
-  // Persistent Calc Worker (Fast enough to keep)
+  // Persistent Workers
   const calcWorkerRef = useRef<Worker | null>(null);
+  const trendWorkerRef = useRef<Worker | null>(null);
   const lastCalcJob = useRef(0);
+  const lastTrendJob = useRef(0);
 
-  // Initialize Calc Worker Once
+  // Initialize Workers Once
   useEffect(() => {
     calcWorkerRef.current = new CalcWorker();
     calcWorkerRef.current.onmessage = (e: MessageEvent<{ success: boolean; id: number; data?: CalculationResult }>) => {
@@ -160,8 +271,17 @@ const App: React.FC = () => {
         setBaseResult(e.data.data);
       }
     };
+
+    trendWorkerRef.current = new TrendWorker();
+    trendWorkerRef.current.onmessage = (e: MessageEvent<{ success: boolean; id: number; data?: TrendPoint[] }>) => {
+      if (e.data.success && e.data.id === lastTrendJob.current && e.data.data) {
+        setTrendData(e.data.data);
+      }
+    };
+
     return () => {
       calcWorkerRef.current?.terminate();
+      trendWorkerRef.current?.terminate();
     };
   }, []);
 
@@ -174,32 +294,19 @@ const App: React.FC = () => {
   const deferredParams = useDeferredValue(params);
   const EMPTY_TREND: TrendPoint[] = useMemo(() => [], []);
 
-  // Fast Calculation (Persistent Worker)
+  // Dispatch Jobs
   useEffect(() => {
-    if (!calcWorkerRef.current) return;
-    const jobId = ++lastCalcJob.current;
-    calcWorkerRef.current.postMessage({ id: jobId, params: deferredParams });
+    if (!calcWorkerRef.current || !trendWorkerRef.current) return;
+
+    // Fast Calculation
+    const calcJobId = ++lastCalcJob.current;
+    calcWorkerRef.current.postMessage({ id: calcJobId, params: deferredParams });
+
+    // Slow Calculation (Trend)
+    const trendJobId = ++lastTrendJob.current;
+    trendWorkerRef.current.postMessage({ id: trendJobId, params: deferredParams });
+
   }, [deferredParams]);
-
-  // Slow Calculation (Trend) - TERMINATE ON UPDATE Pattern
-  // This ensures we never waste CPU on stale trend calculations during rapid drags.
-  useEffect(() => {
-    const worker = new TrendWorker();
-
-    worker.onmessage = (e: MessageEvent<{ success: boolean; id: number; data?: TrendPoint[] }>) => {
-      if (e.data.success && e.data.data) {
-        setTrendData(e.data.data);
-      }
-    };
-
-    // Post the job
-    worker.postMessage({ id: 0, params: deferredParams }); // ID not needed for cancellation pattern, but kept for consistency
-
-    // Cleanup: TERMINATE the worker immediately if params change
-    return () => {
-      worker.terminate();
-    };
-  }, [deferredParams]); // Re-runs whenever deferredParams changes
 
   // Merge Results
   const result = useMemo(() => ({
@@ -298,111 +405,14 @@ const App: React.FC = () => {
           />
 
           {/* --- CENTER/RIGHT: Dashboard --- */}
-          <div className="lg:col-span-9 space-y-8">
+          <Dashboard
+            result={result}
+            retirementAge={retirementAge}
+            deathAge={deathAge}
+            setRetirementAge={setRetirementAge}
+            formatCNY={formatCNY}
+          />
 
-            {/* 1. KPI CARDS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-1">
-                <KPICard
-                  label="FIRE 目标资产 (购买力)"
-                  value={formatCNY(result.requiredWealthPV)}
-                  subvalue="这是您今天需要拥有的“购买力”总额"
-                  icon={Sparkles}
-                  colorClass="bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-xl shadow-indigo-500/20"
-                  textClass="text-white"
-                />
-              </div>
-              <div className="md:col-span-1">
-                <KPICard
-                  label="名义目标 (账户余额)"
-                  value={formatCNY(result.requiredWealth)}
-                  subvalue={`${retirementAge}岁时，银行卡里显示的数字`}
-                  icon={ArrowRight}
-                />
-              </div>
-              <div className="md:col-span-1">
-                <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl shadow-sm border border-white/50 h-full flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-all">
-                  <div className="absolute -right-6 -top-6 w-32 h-32 bg-emerald-400/10 rounded-full blur-3xl group-hover:bg-emerald-400/20 transition-colors"></div>
-                  <div className="relative z-10">
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-800/70">即刻行动</span>
-                      <TrendingUp className="w-4 h-4 text-emerald-600/60" />
-                    </div>
-                    <div className="text-3xl font-mono font-bold tracking-tighter text-emerald-600 mb-1">
-                      ¥{result.firstYearSavingsMonthly.toLocaleString()}
-                    </div>
-                    <div className="text-xs font-medium text-slate-500 leading-relaxed">
-                      若现在资产为0，本月需存下金额 <br />(假设薪资随经验增长)
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. PRIMARY VISUALIZATION */}
-            <div className="bg-white/60 backdrop-blur-md rounded-3xl shadow-sm border border-white/50 overflow-hidden transition-all hover:shadow-md">
-              <div className="p-6 border-b border-slate-100/50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                    <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg">
-                      <Layers className="w-4 h-4" />
-                    </div>
-                    财富积累路径
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-1 ml-9">复利效应可视化：蓝色为本金投入，紫色为市场赠予的收益</p>
-                </div>
-                <div className="flex gap-4 text-xs bg-slate-50/50 px-3 py-1.5 rounded-full border border-slate-100">
-                  <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div><span className="text-slate-600 font-medium">本金投入</span></div>
-                  <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]"></div><span className="text-slate-600 font-medium">复利收益</span></div>
-                </div>
-              </div>
-              <div className="p-6">
-                <AccumulationChart data={result.accumulationData} />
-              </div>
-            </div>
-
-            {/* 3. SECONDARY VISUALIZATIONS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-              {/* Trend Analysis */}
-              <div className="bg-white/60 backdrop-blur-md rounded-3xl shadow-sm border border-white/50 overflow-hidden flex flex-col transition-all hover:shadow-md">
-                <div className="p-6 border-b border-slate-100/50">
-                  <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                    <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
-                      <TrendingDown className="w-4 h-4" />
-                    </div>
-                    退休年龄敏感度
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-1 ml-9">晚退几年能少存多少？(点击图表快速切换)</p>
-                </div>
-                <div className="p-6 flex-1 relative">
-                  <RetirementTrendChart
-                    data={result.trendData}
-                    currentRetirementAge={retirementAge}
-                    onSelect={setRetirementAge}
-                  />
-                </div>
-              </div>
-
-              {/* Depletion Analysis */}
-              <div className="bg-white/60 backdrop-blur-md rounded-3xl shadow-sm border border-white/50 overflow-hidden flex flex-col transition-all hover:shadow-md">
-                <div className="p-6 border-b border-slate-100/50">
-                  <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                    <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg">
-                      <PieChart className="w-4 h-4" />
-                    </div>
-                    退休资金消耗推演
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-1 ml-9">安全边界测试：能否平稳支撑至 {deathAge} 岁？</p>
-                </div>
-                <div className="p-6 flex-1">
-                  <WealthDepletionChart data={result.simulationData} retirementAge={retirementAge} />
-                </div>
-              </div>
-
-            </div>
-
-          </div>
         </div>
       </main>
 
