@@ -2,7 +2,7 @@
 import { FinancialParams, CalculationResult, SimulationYear, TrendPoint, AccumulationPoint } from '../types';
 
 /**
- * REALISTIC CAREER WAGE GROWTH MODEL (Chengdu / New Tier 1 Cities)
+ * REALISTIC CAREER WAGE GROWTH MODEL (Tier 1 Cities)
  * Represents "Real" growth above inflation.
  */
 const getRealWageGrowthRate = (age: number): number => {

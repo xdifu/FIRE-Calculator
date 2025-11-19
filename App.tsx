@@ -57,7 +57,7 @@ const ControlPanel = memo(({
         <div className="bg-life-50/50 border border-life-100 rounded-xl p-3 mt-2 flex gap-3 items-start">
           <Info className="w-4 h-4 text-life-500 mt-0.5 flex-shrink-0" />
           <p className="text-[11px] text-life-600/80 leading-relaxed">
-            按照成都物价输入。系统会自动计算通胀，您只需关心现在的购买力。
+            请输入您当前的月度支出。系统会自动计算通胀，您只需关心现在的购买力。
           </p>
         </div>
       </Card>
@@ -343,7 +343,7 @@ const App: React.FC = () => {
               <Calculator className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-none font-heading">Chengdu FIRE Lab</h1>
+              <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-none font-heading">FIRE Lab</h1>
               <p className="text-[10px] font-medium text-slate-500 tracking-wide uppercase mt-0.5">Financial Independence Research</p>
             </div>
           </div>
