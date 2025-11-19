@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useDeferredValue, memo } from 'react';
 import {
   Calculator, Sparkles, MapPin, AlertCircle, TrendingDown,
   TrendingUp, Wallet, Info, ArrowRight, BarChart3, PieChart, Layers
@@ -12,26 +12,14 @@ import ReactMarkdown from 'react-markdown';
 import TrendWorker from './workers/trend.worker?worker';
 import CalcWorker from './workers/calc.worker?worker';
 
-// --- UI Components ---
+// --- UI Components (Memoized) ---
 
-const RangeInput = ({
+const RangeInput = memo(({
   label, value, min, max, step, onChange, unit = "", variant = "default"
 }: {
   label: string; value: number; min: number; max: number; step: number; onChange: (val: number) => void; unit?: string; variant?: "default" | "indigo" | "emerald" | "rose"
 }) => {
-  // Local state for instant visual feedback during drag
-  const [localValue, setLocalValue] = React.useState(value);
-  const [isDragging, setIsDragging] = React.useState(false);
-
-  // Sync local value when prop changes (from external sources)
-  React.useEffect(() => {
-    if (!isDragging) {
-      setLocalValue(value);
-    }
-  }, [value, isDragging]);
-
-  const displayValue = isDragging ? localValue : value;
-  const percentage = Math.min(100, Math.max(0, ((displayValue - min) / (max - min)) * 100));
+  const percentage = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
 
   const colors = {
     default: { text: 'text-slate-700', active: '#64748b' },
@@ -41,38 +29,19 @@ const RangeInput = ({
   };
   const theme = colors[variant];
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = Number(e.target.value);
-    setLocalValue(newValue);
-    setIsDragging(true);
-  };
-
-  const handleCommit = () => {
-    if (isDragging) {
-      onChange(localValue);
-      setIsDragging(false);
-    }
-  };
-
   return (
     <div className="mb-5 group select-none">
       <div className="flex justify-between items-center mb-2">
         <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</label>
         <div className="flex items-baseline gap-0.5">
-          <span className={`text-lg font-mono font-bold ${theme.text}`}>{displayValue}</span>
+          <span className={`text-lg font-mono font-bold ${theme.text}`}>{value}</span>
           <span className="text-xs font-medium text-slate-400">{unit}</span>
         </div>
       </div>
       <div className="relative w-full h-4 flex items-center cursor-pointer">
         <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={displayValue}
-          onChange={handleChange}
-          onMouseUp={handleCommit}
-          onTouchEnd={handleCommit}
+          type="range" min={min} max={max} step={step} value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
           className="w-full absolute z-20 opacity-0 h-full cursor-pointer"
         />
         <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden relative z-10">
@@ -90,9 +59,9 @@ const RangeInput = ({
       </div>
     </div>
   );
-};
+});
 
-const KPICard = ({ label, value, subvalue, icon: Icon, colorClass = "bg-white", textClass = "text-slate-800" }: any) => (
+const KPICard = memo(({ label, value, subvalue, icon: Icon, colorClass = "bg-white", textClass = "text-slate-800" }: any) => (
   <div className={`${colorClass} p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-full transition-all hover:shadow-md`}>
     <div className="flex justify-between items-start mb-2">
       <span className={`text-[10px] font-bold uppercase tracking-widest ${textClass} opacity-60`}>{label}</span>
@@ -103,7 +72,57 @@ const KPICard = ({ label, value, subvalue, icon: Icon, colorClass = "bg-white", 
       <div className={`text-xs font-medium ${textClass} opacity-60 leading-tight`}>{subvalue}</div>
     </div>
   </div>
-);
+));
+
+// --- Control Panel (Memoized to prevent re-renders of unchanged inputs) ---
+const ControlPanel = memo(({
+  currentAge, setCurrentAge,
+  retirementAge, setRetirementAge,
+  deathAge,
+  monthlyExpense, setMonthlyExpense,
+  investmentReturnRate, setInvestmentReturnRate,
+  inflationRate, setInflationRate
+}: any) => {
+  return (
+    <div className="lg:col-span-3 space-y-6">
+      {/* Panel 1: Identity */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <MapPin className="w-3 h-3" /> 基础设定
+        </h3>
+        <RangeInput label="当前年龄" value={currentAge} min={20} max={60} step={1} onChange={setCurrentAge} unit="岁" variant="indigo" />
+        <RangeInput label="目标退休" value={retirementAge} min={currentAge + 1} max={65} step={1} onChange={setRetirementAge} unit="岁" variant="indigo" />
+        <div className="mt-6 pt-4 border-t border-slate-50">
+          <div className="text-xs text-slate-500 flex justify-between mb-1"><span>工作年限</span> <span className="font-mono font-bold">{retirementAge - currentAge} 年</span></div>
+          <div className="text-xs text-slate-500 flex justify-between"><span>退休时长</span> <span className="font-mono font-bold">{deathAge - retirementAge} 年</span></div>
+        </div>
+      </div>
+
+      {/* Panel 2: Lifestyle */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <Wallet className="w-3 h-3" /> 消费水平
+        </h3>
+        <RangeInput label="月支出 (现值)" value={monthlyExpense} min={2000} max={40000} step={500} onChange={setMonthlyExpense} unit="元" variant="rose" />
+        <div className="bg-rose-50 rounded-lg p-3 mt-2 flex gap-2 items-start">
+          <Info className="w-3.5 h-3.5 text-rose-500 mt-0.5 flex-shrink-0" />
+          <p className="text-[10px] text-rose-700 leading-relaxed">
+            按照成都物价输入。系统会自动计算通胀，您只需关心现在的购买力。
+          </p>
+        </div>
+      </div>
+
+      {/* Panel 3: Market */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <BarChart3 className="w-3 h-3" /> 宏观假设
+        </h3>
+        <RangeInput label="长期年化回报" value={investmentReturnRate} min={0} max={12} step={0.5} onChange={setInvestmentReturnRate} unit="%" variant="emerald" />
+        <RangeInput label="平均通胀率" value={inflationRate} min={0} max={8} step={0.5} onChange={setInflationRate} unit="%" variant="default" />
+      </div>
+    </div>
+  );
+});
 
 // --- Main Application ---
 
@@ -125,30 +144,20 @@ const App: React.FC = () => {
     currentAge, retirementAge, deathAge, monthlyExpense, inflationRate, investmentReturnRate
   }, { includeTrend: false }));
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
-  const workerRef = useRef<Worker | null>(null);
+
+  // Persistent Calc Worker (Fast enough to keep)
   const calcWorkerRef = useRef<Worker | null>(null);
-  const lastTrendJob = useRef(0);
   const lastCalcJob = useRef(0);
 
-  // Initialize Worker
+  // Initialize Calc Worker Once
   useEffect(() => {
-    workerRef.current = new TrendWorker();
     calcWorkerRef.current = new CalcWorker();
-
-    workerRef.current.onmessage = (e: MessageEvent<{ success: boolean; id: number; data?: TrendPoint[] }>) => {
-      if (e.data.success && e.data.id === lastTrendJob.current && e.data.data) {
-        setTrendData(e.data.data);
-      }
-    };
-
     calcWorkerRef.current.onmessage = (e: MessageEvent<{ success: boolean; id: number; data?: CalculationResult }>) => {
       if (e.data.success && e.data.id === lastCalcJob.current && e.data.data) {
         setBaseResult(e.data.data);
       }
     };
-
     return () => {
-      workerRef.current?.terminate();
       calcWorkerRef.current?.terminate();
     };
   }, []);
@@ -159,24 +168,35 @@ const App: React.FC = () => {
   }), [currentAge, retirementAge, deathAge, monthlyExpense, inflationRate, investmentReturnRate]);
 
   // 2. Deferred State (Driven by React Concurrent Features)
-  // This allows the UI (sliders) to update instantly, while the heavy calculation/rendering
-  // lags slightly behind in a non-blocking way.
   const deferredParams = useDeferredValue(params);
-  const EMPTY_TREND: TrendPoint[] = useMemo(() => [], []); // Stable ref to avoid rerenders when trend not ready
+  const EMPTY_TREND: TrendPoint[] = useMemo(() => [], []);
 
-  // Fast Calculation moved to worker (uses DEFERRED params for coalescing rapid moves)
+  // Fast Calculation (Persistent Worker)
   useEffect(() => {
     if (!calcWorkerRef.current) return;
     const jobId = ++lastCalcJob.current;
     calcWorkerRef.current.postMessage({ id: jobId, params: deferredParams });
   }, [deferredParams]);
 
-  // Slow Calculation (Trend) - Worker Thread with job id guarding
+  // Slow Calculation (Trend) - TERMINATE ON UPDATE Pattern
+  // This ensures we never waste CPU on stale trend calculations during rapid drags.
   useEffect(() => {
-    if (!workerRef.current) return;
-    const jobId = ++lastTrendJob.current;
-    workerRef.current.postMessage({ id: jobId, params: deferredParams });
-  }, [deferredParams]);
+    const worker = new TrendWorker();
+
+    worker.onmessage = (e: MessageEvent<{ success: boolean; id: number; data?: TrendPoint[] }>) => {
+      if (e.data.success && e.data.data) {
+        setTrendData(e.data.data);
+      }
+    };
+
+    // Post the job
+    worker.postMessage({ id: 0, params: deferredParams }); // ID not needed for cancellation pattern, but kept for consistency
+
+    // Cleanup: TERMINATE the worker immediately if params change
+    return () => {
+      worker.terminate();
+    };
+  }, [deferredParams]); // Re-runs whenever deferredParams changes
 
   // Merge Results
   const result = useMemo(() => ({
@@ -184,7 +204,7 @@ const App: React.FC = () => {
     trendData: trendData.length > 0 ? trendData : EMPTY_TREND
   }), [baseResult, trendData, EMPTY_TREND]);
 
-  // Logic Check - Uses DEFERRED params to avoid jitter
+  // Logic Check
   useEffect(() => {
     if (deferredParams.retirementAge <= deferredParams.currentAge) {
       setRetirementAge(deferredParams.currentAge + 1);
@@ -213,7 +233,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-indigo-500 selection:text-white pb-20">
 
-      {/* --- Top Navigation / Branding --- */}
+      {/* --- Top Navigation --- */}
       <nav className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md bg-white/80">
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg shadow-indigo-200">
@@ -237,46 +257,15 @@ const App: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-          {/* --- LEFT COLUMN: Inputs (The "Control Panel") --- */}
-          <div className="lg:col-span-3 space-y-6">
-
-            {/* Panel 1: Identity */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <MapPin className="w-3 h-3" /> 基础设定
-              </h3>
-              <RangeInput label="当前年龄" value={currentAge} min={20} max={60} step={1} onChange={setCurrentAge} unit="岁" variant="indigo" />
-              <RangeInput label="目标退休" value={retirementAge} min={currentAge + 1} max={65} step={1} onChange={setRetirementAge} unit="岁" variant="indigo" />
-              <div className="mt-6 pt-4 border-t border-slate-50">
-                <div className="text-xs text-slate-500 flex justify-between mb-1"><span>工作年限</span> <span className="font-mono font-bold">{retirementAge - currentAge} 年</span></div>
-                <div className="text-xs text-slate-500 flex justify-between"><span>退休时长</span> <span className="font-mono font-bold">{deathAge - retirementAge} 年</span></div>
-              </div>
-            </div>
-
-            {/* Panel 2: Lifestyle */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Wallet className="w-3 h-3" /> 消费水平
-              </h3>
-              <RangeInput label="月支出 (现值)" value={monthlyExpense} min={2000} max={40000} step={500} onChange={setMonthlyExpense} unit="元" variant="rose" />
-              <div className="bg-rose-50 rounded-lg p-3 mt-2 flex gap-2 items-start">
-                <Info className="w-3.5 h-3.5 text-rose-500 mt-0.5 flex-shrink-0" />
-                <p className="text-[10px] text-rose-700 leading-relaxed">
-                  按照成都物价输入。系统会自动计算通胀，您只需关心现在的购买力。
-                </p>
-              </div>
-            </div>
-
-            {/* Panel 3: Market */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <BarChart3 className="w-3 h-3" /> 宏观假设
-              </h3>
-              <RangeInput label="长期年化回报" value={investmentReturnRate} min={0} max={12} step={0.5} onChange={setInvestmentReturnRate} unit="%" variant="emerald" />
-              <RangeInput label="平均通胀率" value={inflationRate} min={0} max={8} step={0.5} onChange={setInflationRate} unit="%" variant="default" />
-            </div>
-
-          </div>
+          {/* --- LEFT COLUMN: Inputs (Control Panel) --- */}
+          <ControlPanel
+            currentAge={currentAge} setCurrentAge={setCurrentAge}
+            retirementAge={retirementAge} setRetirementAge={setRetirementAge}
+            deathAge={deathAge}
+            monthlyExpense={monthlyExpense} setMonthlyExpense={setMonthlyExpense}
+            investmentReturnRate={investmentReturnRate} setInvestmentReturnRate={setInvestmentReturnRate}
+            inflationRate={inflationRate} setInflationRate={setInflationRate}
+          />
 
           {/* --- CENTER/RIGHT: Dashboard --- */}
           <div className="lg:col-span-9 space-y-6">
@@ -320,7 +309,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. PRIMARY VISUALIZATION: The Accumulation Journey */}
+            {/* 2. PRIMARY VISUALIZATION */}
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 border-b border-slate-50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
@@ -340,7 +329,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. SECONDARY VISUALIZATIONS: Grid */}
+            {/* 3. SECONDARY VISUALIZATIONS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
               {/* Trend Analysis */}
