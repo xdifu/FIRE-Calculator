@@ -13,7 +13,7 @@ const getRealWageGrowthRate = (age: number): number => {
   return 0.00;               // 45+: Stagnation / Defense phase (High risk of flat real income)
 };
 
-export const calculateFIRE = (params: FinancialParams): CalculationResult => {
+export const calculateFIRE = (params: FinancialParams, options: { includeTrend?: boolean } = { includeTrend: true }): CalculationResult => {
   const {
     currentAge,
     retirementAge,
@@ -44,13 +44,14 @@ export const calculateFIRE = (params: FinancialParams): CalculationResult => {
   );
 
   // 3. Sensitivity Analysis (Trend): Impact of changing retirement age
-  const trendData = calculateTrendAnalysis(
+  // OPTIMIZATION: Allow skipping this heavy calculation for main thread performance
+  const trendData = options.includeTrend ? calculateTrendAnalysis(
     currentAge,
     deathAge,
     monthlyExpense,
     inflationRate,
     investmentReturnRate
-  );
+  ) : [];
 
   return {
     requiredWealth: Math.round(requiredWealth),
@@ -67,7 +68,7 @@ export const calculateFIRE = (params: FinancialParams): CalculationResult => {
  * Phase 1: Decumulation (Retirement -> Death)
  * Uses Monthly Simulation for maximum precision.
  */
-const calculateRetirementNeeds = (
+export const calculateRetirementNeeds = (
   currentAge: number,
   retirementAge: number,
   deathAge: number,
@@ -162,7 +163,7 @@ const simulateDepletionMonthly = (
  * Phase 2: Accumulation (Now -> Retirement)
  * Solves for Initial Monthly Savings using Monthly Iterations.
  */
-const calculateAccumulationPath = (
+export const calculateAccumulationPath = (
   currentAge: number,
   retirementAge: number,
   targetWealth: number,
@@ -263,7 +264,7 @@ const calculateAccumulationPath = (
  * Phase 3: Trend Analysis
  * Calculates the curve of "Required Wealth" vs "Retirement Age"
  */
-const calculateTrendAnalysis = (
+export const calculateTrendAnalysis = (
   currentAge: number,
   deathAge: number,
   monthlyExpense: number,

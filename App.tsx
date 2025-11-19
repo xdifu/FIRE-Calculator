@@ -1,14 +1,16 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import {
   Calculator, Sparkles, MapPin, AlertCircle, TrendingDown,
   TrendingUp, Wallet, Info, ArrowRight, BarChart3, PieChart, Layers
 } from 'lucide-react';
-import { FinancialParams } from './types';
+import { FinancialParams, TrendPoint, CalculationResult } from './types';
 import { calculateFIRE } from './utils/finance';
 import { WealthDepletionChart, RetirementTrendChart, AccumulationChart } from './components/WealthChart';
 import { getFinancialAdvice } from './services/geminiService';
 import ReactMarkdown from 'react-markdown';
+import TrendWorker from './workers/trend.worker?worker';
+import CalcWorker from './workers/calc.worker?worker';
 
 // --- UI Components ---
 
@@ -87,15 +89,76 @@ const App: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
   const [showAiModal, setShowAiModal] = useState<boolean>(false);
 
+  // Worker State
+  const [baseResult, setBaseResult] = useState<CalculationResult>(() => calculateFIRE({
+    currentAge, retirementAge, deathAge, monthlyExpense, inflationRate, investmentReturnRate
+  }, { includeTrend: false }));
+  const [trendData, setTrendData] = useState<TrendPoint[]>([]);
+  const workerRef = useRef<Worker | null>(null);
+  const calcWorkerRef = useRef<Worker | null>(null);
+  const lastTrendJob = useRef(0);
+  const lastCalcJob = useRef(0);
+
+  // Initialize Worker
+  useEffect(() => {
+    workerRef.current = new TrendWorker();
+    calcWorkerRef.current = new CalcWorker();
+
+    workerRef.current.onmessage = (e: MessageEvent<{ success: boolean; id: number; data?: TrendPoint[] }>) => {
+      if (e.data.success && e.data.id === lastTrendJob.current && e.data.data) {
+        setTrendData(e.data.data);
+      }
+    };
+
+    calcWorkerRef.current.onmessage = (e: MessageEvent<{ success: boolean; id: number; data?: CalculationResult }>) => {
+      if (e.data.success && e.data.id === lastCalcJob.current && e.data.data) {
+        setBaseResult(e.data.data);
+      }
+    };
+
+    return () => {
+      workerRef.current?.terminate();
+      calcWorkerRef.current?.terminate();
+    };
+  }, []);
+
+  // 1. Immediate State (Driven by Sliders)
   const params: FinancialParams = useMemo(() => ({
     currentAge, retirementAge, deathAge, monthlyExpense, inflationRate, investmentReturnRate,
   }), [currentAge, retirementAge, deathAge, monthlyExpense, inflationRate, investmentReturnRate]);
 
-  const result = useMemo(() => calculateFIRE(params), [params]);
+  // 2. Deferred State (Driven by React Concurrent Features)
+  // This allows the UI (sliders) to update instantly, while the heavy calculation/rendering
+  // lags slightly behind in a non-blocking way.
+  const deferredParams = useDeferredValue(params);
+  const EMPTY_TREND: TrendPoint[] = useMemo(() => [], []); // Stable ref to avoid rerenders when trend not ready
 
+  // Fast Calculation moved to worker (uses DEFERRED params for coalescing rapid moves)
   useEffect(() => {
-    if (retirementAge <= currentAge) setRetirementAge(currentAge + 1);
-  }, [currentAge, retirementAge]);
+    if (!calcWorkerRef.current) return;
+    const jobId = ++lastCalcJob.current;
+    calcWorkerRef.current.postMessage({ id: jobId, params: deferredParams });
+  }, [deferredParams]);
+
+  // Slow Calculation (Trend) - Worker Thread with job id guarding
+  useEffect(() => {
+    if (!workerRef.current) return;
+    const jobId = ++lastTrendJob.current;
+    workerRef.current.postMessage({ id: jobId, params: deferredParams });
+  }, [deferredParams]);
+
+  // Merge Results
+  const result = useMemo(() => ({
+    ...baseResult,
+    trendData: trendData.length > 0 ? trendData : EMPTY_TREND
+  }), [baseResult, trendData, EMPTY_TREND]);
+
+  // Logic Check - Uses DEFERRED params to avoid jitter
+  useEffect(() => {
+    if (deferredParams.retirementAge <= deferredParams.currentAge) {
+      setRetirementAge(deferredParams.currentAge + 1);
+    }
+  }, [deferredParams.currentAge, deferredParams.retirementAge]);
 
   const handleAiAnalysis = async () => {
     setIsAiLoading(true);

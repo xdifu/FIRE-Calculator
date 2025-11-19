@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
   LineChart, Line, Legend, ComposedChart, Bar
@@ -39,7 +39,7 @@ const GlassTooltip = ({ active, payload, label, title, items }: any) => {
 };
 
 // --- 1. Retirement Phase: Depletion Chart ---
-export const WealthDepletionChart: React.FC<{ data: SimulationYear[]; retirementAge: number }> = ({ data, retirementAge }) => {
+const WealthDepletionChartComponent: React.FC<{ data: SimulationYear[]; retirementAge: number }> = ({ data, retirementAge }) => {
   return (
     <div className="h-[320px] w-full select-none">
       <ResponsiveContainer width="100%" height="100%">
@@ -83,8 +83,11 @@ export const WealthDepletionChart: React.FC<{ data: SimulationYear[]; retirement
   );
 };
 
+// Memoized to avoid re-rendering on slider drags when data hasn't changed
+export const WealthDepletionChart = memo(WealthDepletionChartComponent);
+
 // --- 2. Sensitivity: Trend Chart ---
-export const RetirementTrendChart: React.FC<{ data: TrendPoint[]; currentRetirementAge: number; onSelect: (val: number) => void }> = ({ data, currentRetirementAge, onSelect }) => {
+const RetirementTrendChartComponent: React.FC<{ data: TrendPoint[]; currentRetirementAge: number; onSelect: (val: number) => void }> = ({ data, currentRetirementAge, onSelect }) => {
   return (
     <div className="h-[320px] w-full select-none cursor-crosshair">
       <ResponsiveContainer width="100%" height="100%">
@@ -163,8 +166,10 @@ export const RetirementTrendChart: React.FC<{ data: TrendPoint[]; currentRetirem
   );
 };
 
+export const RetirementTrendChart = memo(RetirementTrendChartComponent);
+
 // --- 3. Accumulation: Stacked Growth Chart ---
-export const AccumulationChart: React.FC<{ data: AccumulationPoint[] }> = ({ data }) => {
+const AccumulationChartComponent: React.FC<{ data: AccumulationPoint[] }> = ({ data }) => {
   return (
     <div className="h-[320px] w-full select-none">
       <ResponsiveContainer width="100%" height="100%">
@@ -229,3 +234,5 @@ export const AccumulationChart: React.FC<{ data: AccumulationPoint[] }> = ({ dat
     </div>
   );
 };
+
+export const AccumulationChart = memo(AccumulationChartComponent);
