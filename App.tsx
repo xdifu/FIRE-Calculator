@@ -15,11 +15,16 @@ import CalcWorker from './workers/calc.worker?worker';
 // --- UI Components (Memoized) ---
 
 const RangeInput = memo(({
-  label, value, min, max, step, onChange, unit = "", variant = "default"
+  label, value, min, max, step, onChange, onCommit, unit = "", variant = "default"
 }: {
-  label: string; value: number; min: number; max: number; step: number; onChange: (val: number) => void; unit?: string; variant?: "default" | "indigo" | "emerald" | "rose"
+  label: string; value: number; min: number; max: number; step: number; onChange: (val: number) => void; onCommit: (val: number) => void; unit?: string; variant?: "default" | "indigo" | "emerald" | "rose"
 }) => {
-  const percentage = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+  // Local state for the displayed value (number) to ensure it updates immediately during drag
+  // We use a ref for the DOM elements to bypass React render cycle for the slider handle
+  const trackRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const rafId = useRef<number | null>(null);
 
   const colors = {
     default: { text: 'text-slate-700', active: 'bg-slate-600', shadow: 'shadow-slate-500/30' },
@@ -28,6 +33,71 @@ const RangeInput = memo(({
     rose: { text: 'text-rose-600', active: 'bg-rose-600', shadow: 'shadow-rose-500/30' },
   };
   const theme = colors[variant];
+
+  // Calculate percentage for initial render and updates from external props
+  const getPercentage = (val: number) => Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
+
+  // Update DOM directly
+  const updateUI = (percentage: number) => {
+    if (trackRef.current) trackRef.current.style.width = `${percentage}%`;
+    if (thumbRef.current) thumbRef.current.style.left = `calc(${percentage}% - 10px)`;
+  };
+
+  // Sync with external value when not dragging
+  useEffect(() => {
+    if (!isDragging.current) {
+      updateUI(getPercentage(value));
+    }
+  }, [value, min, max]);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    isDragging.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    handlePointerMove(e); // Update immediately on click
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const percentage = (x / rect.width) * 100;
+
+    // Calculate new value based on step
+    const rawValue = min + (percentage / 100) * (max - min);
+    const steppedValue = Math.round(rawValue / step) * step;
+    const clampedValue = Math.min(max, Math.max(min, steppedValue));
+
+    // 1. Direct DOM update for smoothness (RAF)
+    if (rafId.current) cancelAnimationFrame(rafId.current);
+    rafId.current = requestAnimationFrame(() => {
+      updateUI(percentage); // Visual feedback follows mouse exactly (or could snap to step)
+      // Note: For perfect "follow hand", we use raw percentage for UI, but value is stepped.
+      // If we want UI to snap, use getPercentage(clampedValue). 
+      // Let's snap UI to step for consistency with the number.
+      updateUI(getPercentage(clampedValue));
+    });
+
+    // 2. Update React UI state (for the number display)
+    // This might trigger re-render, but our DOM ref update happens independently
+    onChange(clampedValue);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+
+    // Final commit
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const percentage = (x / rect.width) * 100;
+    const rawValue = min + (percentage / 100) * (max - min);
+    const steppedValue = Math.round(rawValue / step) * step;
+    const clampedValue = Math.min(max, Math.max(min, steppedValue));
+
+    onCommit(clampedValue);
+  };
 
   return (
     <div className="mb-6 group select-none" style={{ touchAction: 'none' }}>
@@ -38,24 +108,27 @@ const RangeInput = memo(({
           <span className="text-xs font-medium text-slate-400">{unit}</span>
         </div>
       </div>
-      <div className="relative w-full h-6 flex items-center cursor-pointer">
-        <input
-          type="range" min={min} max={max} step={step} value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full absolute z-20 opacity-0 h-full cursor-pointer"
-        />
+      <div
+        className="relative w-full h-6 flex items-center cursor-pointer"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+      >
         {/* Track Background */}
         <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden relative z-10">
           {/* Active Track */}
           <div
-            className={`h-full rounded-full transition-all duration-100 ease-out ${theme.active}`}
-            style={{ width: `${percentage}%` }}
+            ref={trackRef}
+            className={`h-full rounded-full transition-none ${theme.active}`}
+            style={{ width: `${getPercentage(value)}%` }}
           />
         </div>
         {/* Thumb */}
         <div
-          className={`absolute h-5 w-5 bg-white border-2 border-white ${theme.shadow} shadow-lg rounded-full pointer-events-none transition-all duration-100 ease-out flex items-center justify-center z-10`}
-          style={{ left: `calc(${percentage}% - 10px)` }}
+          ref={thumbRef}
+          className={`absolute h-5 w-5 bg-white border-2 border-white ${theme.shadow} shadow-lg rounded-full pointer-events-none transition-none flex items-center justify-center z-10`}
+          style={{ left: `calc(${getPercentage(value)}% - 10px)` }}
         >
           <div className={`w-2 h-2 rounded-full ${theme.active}`}></div>
         </div>
@@ -77,15 +150,14 @@ const KPICard = memo(({ label, value, subvalue, icon: Icon, colorClass = "bg-whi
   </div>
 ));
 
-// --- Control Panel (Memoized to prevent re-renders of unchanged inputs) ---
+// --- Control Panel (Memoized) ---
 const ControlPanel = memo(({
-  currentAge, setCurrentAge,
-  retirementAge, setRetirementAge,
-  deathAge,
-  monthlyExpense, setMonthlyExpense,
-  investmentReturnRate, setInvestmentReturnRate,
-  inflationRate, setInflationRate
-}: any) => {
+  uiParams, updateUI, commitParams
+}: {
+  uiParams: FinancialParams;
+  updateUI: (key: keyof FinancialParams, val: number) => void;
+  commitParams: (key: keyof FinancialParams, val: number) => void;
+}) => {
   return (
     <div className="lg:col-span-3 space-y-6">
       {/* Panel 1: Identity */}
@@ -93,11 +165,19 @@ const ControlPanel = memo(({
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
           <MapPin className="w-3.5 h-3.5 text-indigo-400" /> 基础设定
         </h3>
-        <RangeInput label="当前年龄" value={currentAge} min={20} max={60} step={1} onChange={setCurrentAge} unit="岁" variant="indigo" />
-        <RangeInput label="目标退休" value={retirementAge} min={currentAge + 1} max={65} step={1} onChange={setRetirementAge} unit="岁" variant="indigo" />
+        <RangeInput
+          label="当前年龄" value={uiParams.currentAge} min={20} max={60} step={1} unit="岁" variant="indigo"
+          onChange={(v) => updateUI('currentAge', v)}
+          onCommit={(v) => commitParams('currentAge', v)}
+        />
+        <RangeInput
+          label="目标退休" value={uiParams.retirementAge} min={uiParams.currentAge + 1} max={65} step={1} unit="岁" variant="indigo"
+          onChange={(v) => updateUI('retirementAge', v)}
+          onCommit={(v) => commitParams('retirementAge', v)}
+        />
         <div className="mt-6 pt-4 border-t border-slate-100/50">
-          <div className="text-xs text-slate-500 flex justify-between mb-2"><span>工作年限</span> <span className="font-mono font-bold text-slate-700">{retirementAge - currentAge} 年</span></div>
-          <div className="text-xs text-slate-500 flex justify-between"><span>退休时长</span> <span className="font-mono font-bold text-slate-700">{deathAge - retirementAge} 年</span></div>
+          <div className="text-xs text-slate-500 flex justify-between mb-2"><span>工作年限</span> <span className="font-mono font-bold text-slate-700">{uiParams.retirementAge - uiParams.currentAge} 年</span></div>
+          <div className="text-xs text-slate-500 flex justify-between"><span>退休时长</span> <span className="font-mono font-bold text-slate-700">{uiParams.deathAge - uiParams.retirementAge} 年</span></div>
         </div>
       </div>
 
@@ -106,7 +186,11 @@ const ControlPanel = memo(({
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
           <Wallet className="w-3.5 h-3.5 text-rose-400" /> 消费水平
         </h3>
-        <RangeInput label="月支出 (现值)" value={monthlyExpense} min={2000} max={40000} step={500} onChange={setMonthlyExpense} unit="元" variant="rose" />
+        <RangeInput
+          label="月支出 (现值)" value={uiParams.monthlyExpense} min={2000} max={40000} step={500} unit="元" variant="rose"
+          onChange={(v) => updateUI('monthlyExpense', v)}
+          onCommit={(v) => commitParams('monthlyExpense', v)}
+        />
         <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-3 mt-2 flex gap-3 items-start">
           <Info className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0" />
           <p className="text-[11px] text-rose-700/80 leading-relaxed">
@@ -120,8 +204,16 @@ const ControlPanel = memo(({
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
           <BarChart3 className="w-3.5 h-3.5 text-emerald-400" /> 宏观假设
         </h3>
-        <RangeInput label="长期年化回报" value={investmentReturnRate} min={0} max={12} step={0.5} onChange={setInvestmentReturnRate} unit="%" variant="emerald" />
-        <RangeInput label="平均通胀率" value={inflationRate} min={0} max={8} step={0.5} onChange={setInflationRate} unit="%" variant="default" />
+        <RangeInput
+          label="长期年化回报" value={uiParams.investmentReturnRate} min={0} max={12} step={0.5} unit="%" variant="emerald"
+          onChange={(v) => updateUI('investmentReturnRate', v)}
+          onCommit={(v) => commitParams('investmentReturnRate', v)}
+        />
+        <RangeInput
+          label="平均通胀率" value={uiParams.inflationRate} min={0} max={8} step={0.5} unit="%" variant="default"
+          onChange={(v) => updateUI('inflationRate', v)}
+          onCommit={(v) => commitParams('inflationRate', v)}
+        />
       </div>
     </div>
   );
@@ -239,12 +331,37 @@ const Dashboard = memo(({ result, retirementAge, deathAge, setRetirementAge, for
 // --- Main Application ---
 
 const App: React.FC = () => {
-  const [currentAge, setCurrentAge] = useState<number>(30);
-  const [retirementAge, setRetirementAge] = useState<number>(45);
-  const [deathAge] = useState<number>(90);
-  const [monthlyExpense, setMonthlyExpense] = useState<number>(5000);
-  const [inflationRate, setInflationRate] = useState<number>(3.0);
-  const [investmentReturnRate, setInvestmentReturnRate] = useState<number>(5.0);
+  // 1. Split State: UI (Immediate) vs Committed (Calculation)
+  const [uiParams, setUiParams] = useState<FinancialParams>({
+    currentAge: 30,
+    retirementAge: 45,
+    deathAge: 90,
+    monthlyExpense: 5000,
+    inflationRate: 3.0,
+    investmentReturnRate: 5.0
+  });
+
+  const [committedParams, setCommittedParams] = useState<FinancialParams>(uiParams);
+
+  // Helpers to update state
+  const updateUI = (key: keyof FinancialParams, val: number) => {
+    setUiParams(prev => ({ ...prev, [key]: val }));
+  };
+
+  const commitParams = (key: keyof FinancialParams, val: number) => {
+    // Update UI one last time to ensure sync (e.g. if snapped)
+    setUiParams(prev => ({ ...prev, [key]: val }));
+    // Commit for calculation
+    React.startTransition(() => {
+      setCommittedParams(prev => ({ ...prev, [key]: val }));
+    });
+  };
+
+  // Special handler for Trend Chart click (which is a commit action)
+  const handleTrendSelect = (age: number) => {
+    updateUI('retirementAge', age);
+    commitParams('retirementAge', age);
+  };
 
   // AI Modal
   const [aiAdvice, setAiAdvice] = useState<string>("");
@@ -252,9 +369,7 @@ const App: React.FC = () => {
   const [showAiModal, setShowAiModal] = useState<boolean>(false);
 
   // Worker State
-  const [baseResult, setBaseResult] = useState<CalculationResult>(() => calculateFIRE({
-    currentAge, retirementAge, deathAge, monthlyExpense, inflationRate, investmentReturnRate
-  }, { includeTrend: false }));
+  const [baseResult, setBaseResult] = useState<CalculationResult>(() => calculateFIRE(committedParams, { includeTrend: false }));
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
 
   // Persistent Workers
@@ -285,28 +400,25 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // 1. Immediate State (Driven by Sliders)
-  const params: FinancialParams = useMemo(() => ({
-    currentAge, retirementAge, deathAge, monthlyExpense, inflationRate, investmentReturnRate,
-  }), [currentAge, retirementAge, deathAge, monthlyExpense, inflationRate, investmentReturnRate]);
-
-  // 2. Deferred State (Driven by React Concurrent Features)
-  const deferredParams = useDeferredValue(params);
+  // 2. Deferred State (Driven by Committed Params)
+  // We defer the committed params so that even if commit happens frequently (e.g. throttled),
+  // the worker dispatch is lower priority than UI updates.
+  const deferredCommittedParams = useDeferredValue(committedParams);
   const EMPTY_TREND: TrendPoint[] = useMemo(() => [], []);
 
-  // Dispatch Jobs
+  // Dispatch Jobs (Depends on Committed Params)
   useEffect(() => {
     if (!calcWorkerRef.current || !trendWorkerRef.current) return;
 
     // Fast Calculation
     const calcJobId = ++lastCalcJob.current;
-    calcWorkerRef.current.postMessage({ id: calcJobId, params: deferredParams });
+    calcWorkerRef.current.postMessage({ id: calcJobId, params: deferredCommittedParams });
 
     // Slow Calculation (Trend)
     const trendJobId = ++lastTrendJob.current;
-    trendWorkerRef.current.postMessage({ id: trendJobId, params: deferredParams });
+    trendWorkerRef.current.postMessage({ id: trendJobId, params: deferredCommittedParams });
 
-  }, [deferredParams]);
+  }, [deferredCommittedParams]);
 
   // Merge Results
   const result = useMemo(() => ({
@@ -314,18 +426,24 @@ const App: React.FC = () => {
     trendData: trendData.length > 0 ? trendData : EMPTY_TREND
   }), [baseResult, trendData, EMPTY_TREND]);
 
-  // Logic Check
+  // Logic Check (Only on commit)
   useEffect(() => {
-    if (deferredParams.retirementAge <= deferredParams.currentAge) {
-      setRetirementAge(deferredParams.currentAge + 1);
+    if (committedParams.retirementAge <= committedParams.currentAge) {
+      // If logic violation, force update both
+      const newRetirementAge = committedParams.currentAge + 1;
+      updateUI('retirementAge', newRetirementAge);
+      // We don't call commitParams here to avoid infinite loop, just set state directly if needed
+      // But actually, we should just let the next render handle it or force it now.
+      // Let's just correct the UI and Committed state.
+      setCommittedParams(prev => ({ ...prev, retirementAge: newRetirementAge }));
     }
-  }, [deferredParams.currentAge, deferredParams.retirementAge]);
+  }, [committedParams.currentAge, committedParams.retirementAge]);
 
   const handleAiAnalysis = async () => {
     setIsAiLoading(true);
     setShowAiModal(true);
     try {
-      const advice = await getFinancialAdvice(params, result.requiredWealthPV);
+      const advice = await getFinancialAdvice(committedParams, result.requiredWealthPV);
       setAiAdvice(advice);
     } catch (error) {
       setAiAdvice("无法获取 AI 建议。请确保已配置 API Key，并检查网络连接。");
@@ -396,20 +514,17 @@ const App: React.FC = () => {
 
           {/* --- LEFT COLUMN: Inputs (Control Panel) --- */}
           <ControlPanel
-            currentAge={currentAge} setCurrentAge={setCurrentAge}
-            retirementAge={retirementAge} setRetirementAge={setRetirementAge}
-            deathAge={deathAge}
-            monthlyExpense={monthlyExpense} setMonthlyExpense={setMonthlyExpense}
-            investmentReturnRate={investmentReturnRate} setInvestmentReturnRate={setInvestmentReturnRate}
-            inflationRate={inflationRate} setInflationRate={setInflationRate}
+            uiParams={uiParams}
+            updateUI={updateUI}
+            commitParams={commitParams}
           />
 
           {/* --- CENTER/RIGHT: Dashboard --- */}
           <Dashboard
             result={result}
-            retirementAge={retirementAge}
-            deathAge={deathAge}
-            setRetirementAge={setRetirementAge}
+            retirementAge={committedParams.retirementAge}
+            deathAge={committedParams.deathAge}
+            setRetirementAge={handleTrendSelect}
             formatCNY={formatCNY}
           />
 
