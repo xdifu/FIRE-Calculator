@@ -24,8 +24,8 @@ const GlassTooltip = ({ active, payload, label, title, items }: any) => {
                 <span className="text-slate-400 text-xs">{entry.name}</span>
               </div>
               <span className="font-mono font-medium text-white">
-                {entry.value > 10000 
-                  ? `¥${(entry.value / 10000).toFixed(1)}w` 
+                {entry.value > 10000
+                  ? `¥${(entry.value / 10000).toFixed(1)}w`
                   : `¥${entry.value?.toLocaleString()}`}
               </span>
             </div>
@@ -51,23 +51,23 @@ export const WealthDepletionChart: React.FC<{ data: SimulationYear[]; retirement
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis 
-            dataKey="age" 
-            stroke="#94a3b8" 
+          <XAxis
+            dataKey="age"
+            stroke="#94a3b8"
             tick={{ fontSize: 10, fill: '#64748b' }}
             tickLine={false} axisLine={false}
             interval="preserveStartEnd"
           />
-          <YAxis 
-            stroke="#94a3b8" 
+          <YAxis
+            stroke="#94a3b8"
             tickFormatter={formatCurrencyShort}
             tick={{ fontSize: 10, fill: '#64748b' }}
             tickLine={false} axisLine={false}
           />
           <Tooltip content={<GlassTooltip />} cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '4 4' }} />
-          
+
           <ReferenceLine x={retirementAge} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: '退休点', fill: '#f59e0b', fontSize: 10, position: 'insideTopRight' }} />
-          
+
           <Area
             type="monotone"
             dataKey="portfolioStart"
@@ -90,37 +90,37 @@ export const RetirementTrendChart: React.FC<{ data: TrendPoint[]; currentRetirem
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={data}
-          margin={{ top: 20, right: 10, left: -10, bottom: 0 }}
+          margin={{ top: 20, right: 10, left: -10, bottom: 20 }}
           onClick={(e) => e?.activeLabel && onSelect(Number(e.activeLabel))}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis 
-            dataKey="retirementAge" 
-            stroke="#94a3b8" 
-            tick={{ fontSize: 10 }} 
+          <XAxis
+            dataKey="retirementAge"
+            stroke="#94a3b8"
+            tick={{ fontSize: 10 }}
             tickLine={false} axisLine={false}
             label={{ value: '退休年龄', position: 'insideBottom', offset: -5, fontSize: 10, fill: '#94a3b8' }}
           />
-          <YAxis 
+          <YAxis
             yAxisId="left"
-            stroke="#94a3b8" 
+            stroke="#94a3b8"
             tickFormatter={formatCurrencyShort}
-            tick={{ fontSize: 10 }} 
+            tick={{ fontSize: 10 }}
             tickLine={false} axisLine={false}
           />
-          <YAxis 
+          <YAxis
             yAxisId="right"
             orientation="right"
-            stroke="#94a3b8" 
-            tickFormatter={(v) => `¥${v/1000}k`}
-            tick={{ fontSize: 10, fill: '#818cf8' }} 
+            stroke="#94a3b8"
+            tickFormatter={(v) => `¥${v / 1000}k`}
+            tick={{ fontSize: 10, fill: '#818cf8' }}
             tickLine={false} axisLine={false}
             hide={false}
           />
-          <Tooltip 
+          <Tooltip
             content={
-              <GlassTooltip 
-                title={(val: number) => `${val}岁退休`} 
+              <GlassTooltip
+                title={(val: number) => `${val}岁退休`}
                 items={(item: TrendPoint) => (
                   <div className="mt-2 pt-2 border-t border-slate-700/50">
                     <p className="text-[10px] text-indigo-300 mb-1">每月需储蓄压力:</p>
@@ -129,10 +129,10 @@ export const RetirementTrendChart: React.FC<{ data: TrendPoint[]; currentRetirem
                   </div>
                 )}
               />
-            } 
+            }
           />
-          <Legend verticalAlign="top" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }}/>
-          
+          <Legend verticalAlign="top" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }} />
+
           <ReferenceLine x={currentRetirementAge} stroke="#f59e0b" strokeWidth={2} strokeDasharray="3 3" />
 
           <Line
@@ -180,32 +180,32 @@ export const AccumulationChart: React.FC<{ data: AccumulationPoint[] }> = ({ dat
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis 
-            dataKey="age" 
-            stroke="#94a3b8" 
-            tick={{ fontSize: 10 }} 
+          <XAxis
+            dataKey="age"
+            stroke="#94a3b8"
+            tick={{ fontSize: 10 }}
             tickLine={false} axisLine={false}
           />
-          <YAxis 
-            stroke="#94a3b8" 
+          <YAxis
+            stroke="#94a3b8"
             tickFormatter={formatCurrencyShort}
-            tick={{ fontSize: 10 }} 
+            tick={{ fontSize: 10 }}
             tickLine={false} axisLine={false}
           />
-          <Tooltip 
+          <Tooltip
             content={
-              <GlassTooltip 
+              <GlassTooltip
                 items={(item: AccumulationPoint) => (
-                   item.salaryGrowthRate > 0 ? 
-                   <div className="text-[10px] text-emerald-400 mt-1">
-                     当前阶段薪资实际增长: +{item.salaryGrowthRate.toFixed(1)}% /年
-                   </div> : null
+                  item.salaryGrowthRate > 0 ?
+                    <div className="text-[10px] text-emerald-400 mt-1">
+                      当前阶段薪资实际增长: +{item.salaryGrowthRate.toFixed(1)}% /年
+                    </div> : null
                 )}
               />
-            } 
+            }
           />
-          <Legend verticalAlign="top" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }}/>
-          
+          <Legend verticalAlign="top" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }} />
+
           <Area
             type="monotone"
             dataKey="totalPrincipal"
