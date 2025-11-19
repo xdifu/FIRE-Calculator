@@ -17,6 +17,12 @@
 
 <br />
 
+<div align="center">
+  <img src="./assets/hero.png" alt="FIRE Lab Interface" width="100%">
+</div>
+
+<br />
+
 ## Engineering & Design
 
 This project combines a high-performance, region-aware financial simulation engine with a polished user interface. The design aims for clarity and precision, utilizing a "Luminous Clarity" aesthetic to present complex data intuitively while remaining mathematically rigorous.
