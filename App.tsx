@@ -13,6 +13,7 @@ import TrendWorker from './workers/trend.worker?worker';
 import CalcWorker from './workers/calc.worker?worker';
 import { Slider } from './components/ui/Slider';
 import { Card, KPICard } from './components/ui/Card';
+import { Tooltip } from './components/ui/Tooltip';
 import { LocaleProvider, useLocale } from './contexts/LocaleContext';
 import { Locale, Region } from './locales';
 
@@ -106,6 +107,8 @@ const ControlPanel = memo(({
   );
 });
 
+
+
 // --- Dashboard Component (Memoized) ---
 const Dashboard = memo(({ result, retirementAge, deathAge, setRetirementAge, formatCurrency }: any) => {
   const { t } = useLocale();
@@ -134,21 +137,22 @@ const Dashboard = memo(({ result, retirementAge, deathAge, setRetirementAge, for
         <div className="md:col-span-1 animate-in zoom-in-95 duration-500 delay-300 fill-mode-backwards">
           <div className="glass-panel p-6 rounded-3xl h-full flex flex-col justify-between relative overflow-hidden group hover:shadow-xl transition-all duration-500">
             <div className="absolute -right-6 -top-6 w-32 h-32 bg-growth-400/10 rounded-full blur-3xl group-hover:bg-growth-400/20 transition-colors"></div>
-              <div className="relative z-10">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-growth-600/70 font-heading">{t.dashboard.immediateAction}</span>
+            <div className="relative z-10">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-growth-600/70 font-heading">{t.dashboard.immediateAction}</span>
+                  <Tooltip content={t.dashboard.immediateActionHint} position="bottom">
                     <button
                       type="button"
-                      className="w-4 h-4 flex items-center justify-center text-growth-500/80 hover:text-growth-600 transition-colors"
-                      title={t.dashboard.immediateActionHint}
+                      className="w-4 h-4 flex items-center justify-center text-growth-500/50 hover:text-growth-600 transition-colors cursor-help"
                       aria-label={t.dashboard.immediateAction}
                     >
                       <Info className="w-3 h-3" />
                     </button>
-                  </div>
-                  <TrendingUp className="w-4 h-4 text-growth-600/60" />
+                  </Tooltip>
                 </div>
+                <TrendingUp className="w-4 h-4 text-growth-600/60" />
+              </div>
               <div className="text-3xl font-mono font-bold tracking-tighter text-growth-600 mb-1">
                 {formatCurrency(result.firstYearSavingsMonthly)}
               </div>
