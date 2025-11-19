@@ -32,7 +32,15 @@ interface KPICardProps {
 }
 
 export const KPICard = memo(({ label, value, subvalue, icon: Icon, variant = 'default', className }: KPICardProps) => {
-    const variants = {
+    type VariantStyles = {
+        bg: string;
+        text: string;
+        icon: string;
+        sub: string;
+        shadow?: string;
+    };
+
+    const variants: Record<string, VariantStyles> = {
         default: {
             bg: 'bg-white/60',
             text: 'text-slate-800',
