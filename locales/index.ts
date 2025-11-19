@@ -34,6 +34,7 @@ export interface Translation {
         nominalTargetDesc: string;
         immediateAction: string;
         immediateActionDesc: string;
+        immediateActionHint: string;
         accumulationPath: string;
         accumulationDesc: string;
         trendAnalysis: string;
@@ -95,6 +96,7 @@ export const zh: Translation = {
         nominalTargetDesc: "退休时账户中显示的数字",
         immediateAction: "即刻行动",
         immediateActionDesc: "若现在资产为0，本月需存下金额",
+        immediateActionHint: "该数字表示从今年开始每月需要储蓄的金额。模型假设收入会随年龄和通胀逐年增长，因此随后年份的月储蓄金额会随着工资上调，但大致维持相似的储蓄比例。也就是说，这是启动长期计划所需的第一年月储蓄。",
         accumulationPath: "财富积累路径",
         accumulationDesc: "复利效应可视化：蓝色为本金投入，紫色为市场赠予的收益",
         trendAnalysis: "退休年龄敏感度",
@@ -159,6 +161,7 @@ export const en: Translation = {
         nominalTargetDesc: "The number in your bank account at retirement",
         immediateAction: "Immediate Action",
         immediateActionDesc: "Monthly savings needed starting today",
+        immediateActionHint: "This value shows how much you need to save per month starting this year. The model assumes your income grows with age and inflation, so later years' monthly savings rise with your salary while keeping a similar savings rate. In short, it's the first-year monthly saving required to get on track.",
         accumulationPath: "Wealth Accumulation Path",
         accumulationDesc: "Visualizing compound interest: Blue is principal, Purple is market return",
         trendAnalysis: "Retirement Age Sensitivity",
