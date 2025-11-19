@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { FinancialParams, TrendPoint, CalculationResult } from './types';
 import { calculateFIRE } from './utils/finance';
+import { formatCurrencyLong } from './utils/format';
 import { WealthDepletionChart, RetirementTrendChart, AccumulationChart } from './components/WealthChart';
 import { getFinancialAdvice } from './services/geminiService';
 import ReactMarkdown from 'react-markdown';
@@ -43,8 +44,8 @@ const ControlPanel = memo(({
           onCommit={(v) => commitParams('retirementAge', v)}
         />
         <div className="mt-6 pt-4 border-t border-slate-100/50">
-          <div className="text-xs text-slate-500 flex justify-between mb-2"><span>Work Years</span> <span className="font-mono font-bold text-slate-700">{uiParams.retirementAge - uiParams.currentAge} {t.units.age}</span></div>
-          <div className="text-xs text-slate-500 flex justify-between"><span>Retirement</span> <span className="font-mono font-bold text-slate-700">{uiParams.deathAge - uiParams.retirementAge} {t.units.age}</span></div>
+          <div className="text-xs text-slate-500 flex justify-between mb-2"><span>{t.control.workYears}</span> <span className="font-mono font-bold text-slate-700">{uiParams.retirementAge - uiParams.currentAge} {t.units.age}</span></div>
+          <div className="text-xs text-slate-500 flex justify-between"><span>{t.control.retirementDuration}</span> <span className="font-mono font-bold text-slate-700">{uiParams.deathAge - uiParams.retirementAge} {t.units.age}</span></div>
         </div>
       </Card>
 
@@ -80,7 +81,7 @@ const ControlPanel = memo(({
         <div className="bg-life-50/50 border border-life-100 rounded-xl p-3 mt-4 flex gap-3 items-start">
           <Info className="w-4 h-4 text-life-500 mt-0.5 flex-shrink-0" />
           <p className="text-[11px] text-life-600/80 leading-relaxed">
-            {region === 'AU' ? (locale === 'zh' ? "支出包含房租/房贷。养老金(Super)单独计算。" : "Expenses include rent/mortgage. Super is calculated separately.") : t.control.monthlyExpenseDesc}
+            {region === 'AU' ? t.control.superExpenseHint : t.control.monthlyExpenseDesc}
           </p>
         </div>
       </Card>
@@ -219,6 +220,10 @@ const Dashboard = memo(({ result, retirementAge, deathAge, setRetirementAge, for
 const AppContent: React.FC = () => {
   const { t, locale, setLocale, region, setRegion } = useLocale();
 
+  useEffect(() => {
+    document.title = t.app.title;
+  }, [t.app.title]);
+
   // 1. Split State: UI (Immediate) vs Committed (Calculation)
   const [uiParams, setUiParams] = useState<FinancialParams>({
     currentAge: 30,
@@ -327,7 +332,7 @@ const AppContent: React.FC = () => {
       const advice = await getFinancialAdvice(committedParams, result.requiredWealthPV, locale, region);
       setAiAdvice(advice);
     } catch (error) {
-      setAiAdvice("无法获取 AI 建议。请确保已配置 API Key，并检查网络连接。");
+      setAiAdvice(t.app.aiError);
       console.error(error);
     } finally {
       setIsAiLoading(false);
@@ -335,27 +340,7 @@ const AppContent: React.FC = () => {
   };
 
   const formatCurrency = (val: number) => {
-    const symbol = t.units.currencySymbol;
-
-    // AU Logic: Always use 'k'
-    if (region === 'AU') {
-      if (val >= 1000000) return `${symbol}${(val / 1000000).toFixed(2)}m`;
-      if (val >= 1000) return `${symbol}${(val / 1000).toFixed(0)}k`;
-      return `${symbol}${val.toLocaleString()}`;
-    }
-
-    // CN Logic
-    if (locale === 'zh') {
-      // Chinese: Use '万' / '亿'
-      if (val >= 100000000) return `${symbol}${(val / 100000000).toFixed(2)}亿`;
-      if (val >= 10000) return `${symbol}${(val / 10000).toFixed(0)}万`;
-      return `${symbol}${val.toLocaleString()}`;
-    } else {
-      // English: Use 'k' / 'm'
-      if (val >= 1000000) return `${symbol}${(val / 1000000).toFixed(2)}m`;
-      if (val >= 1000) return `${symbol}${(val / 1000).toFixed(0)}k`;
-      return `${symbol}${val.toLocaleString()}`;
-    }
+    return formatCurrencyLong(val, locale, region, t.units.currencySymbol);
   };
 
   return (
@@ -389,13 +374,13 @@ const AppContent: React.FC = () => {
                 onClick={() => setRegion('CN')}
                 className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${region === 'CN' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                CN
+                {t.regions.CN}
               </button>
               <button
                 onClick={() => setRegion('AU')}
                 className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${region === 'AU' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                AU
+                {t.regions.AU}
               </button>
             </div>
 
@@ -403,7 +388,7 @@ const AppContent: React.FC = () => {
             <button
               onClick={() => setLocale(locale === 'zh' ? 'en' : 'zh')}
               className="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors"
-              title="Switch Language"
+              title={t.app.switchLanguage}
             >
               <Globe className="w-4 h-4" />
             </button>

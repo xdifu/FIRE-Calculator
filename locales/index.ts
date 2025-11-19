@@ -7,6 +7,8 @@ export interface Translation {
         subtitle: string;
         aiAdvisor: string;
         analyzing: string;
+        switchLanguage: string;
+        aiError: string;
     };
     control: {
         identity: string;
@@ -21,6 +23,9 @@ export interface Translation {
         superBalance: string; // AU specific
         superContribution: string; // AU specific
         wageGrowth: string;
+        workYears: string;
+        retirementDuration: string;
+        superExpenseHint: string;
     };
     dashboard: {
         targetWealth: string;
@@ -43,14 +48,28 @@ export interface Translation {
         currency: string;
         currencySymbol: string;
     };
+    regions: Record<Region, string>;
+    charts: {
+        tooltipAge: string;
+        retirementMarker: string;
+        assetBalance: string;
+        retirementAgeAxis: string;
+        retireAt: string;
+        savingsPressureTitle: string;
+        savingsPressureLegend: string;
+        clickToSwitch: string;
+        salaryGrowthNote: string;
+    };
 }
 
 export const zh: Translation = {
     app: {
-        title: "FIRE Lab",
-        subtitle: "财务自由实验室",
-        aiAdvisor: "AI 顾问",
+        title: "财务自由实验室",
+        subtitle: "个人资产量化引擎",
+        aiAdvisor: "智能顾问",
         analyzing: "正在构建专属金融模型...",
+        switchLanguage: "切换语言",
+        aiError: "无法获取智能建议。请确认接口密钥并检查网络。",
     },
     control: {
         identity: "基础设定",
@@ -58,25 +77,28 @@ export const zh: Translation = {
         market: "宏观假设",
         currentAge: "当前年龄",
         retirementAge: "目标退休",
-        monthlyExpense: "月支出 (现值)",
+        monthlyExpense: "月支出（现值）",
         monthlyExpenseDesc: "请输入您当前的月度支出。系统会自动计算通胀，您只需关心现在的购买力。",
         investmentReturn: "长期年化回报",
         inflation: "平均通胀率",
-        superBalance: "养老金余额 (Super)",
-        superContribution: "养老金缴纳率 (SG)",
+        superBalance: "养老金余额",
+        superContribution: "养老金缴纳率",
         wageGrowth: "薪资增长",
+        workYears: "工作年限",
+        retirementDuration: "退休阶段",
+        superExpenseHint: "住房租金或房贷已计入月支出，养老金账户单独核算。",
     },
     dashboard: {
-        targetWealth: "FIRE 目标资产 (购买力)",
-        targetWealthDesc: "这是您今天需要拥有的“购买力”总额",
-        nominalTarget: "名义目标 (账户余额)",
-        nominalTargetDesc: "退休时，银行卡里显示的数字",
+        targetWealth: "财务自由目标资产（购买力）",
+        targetWealthDesc: "这是您今天需要拥有的购买力总额",
+        nominalTarget: "名义目标（账户余额）",
+        nominalTargetDesc: "退休时账户中显示的数字",
         immediateAction: "即刻行动",
         immediateActionDesc: "若现在资产为0，本月需存下金额",
         accumulationPath: "财富积累路径",
         accumulationDesc: "复利效应可视化：蓝色为本金投入，紫色为市场赠予的收益",
         trendAnalysis: "退休年龄敏感度",
-        trendDesc: "晚退几年能少存多少？(点击图表快速切换)",
+        trendDesc: "晚退几年能少存多少？（点击图表快速切换）",
         depletionAnalysis: "退休资金消耗推演",
         depletionDesc: "安全边界测试：能否平稳支撑至预期寿命？",
         principal: "本金投入",
@@ -87,6 +109,21 @@ export const zh: Translation = {
         currency: "元",
         currencySymbol: "¥",
     },
+    regions: {
+        CN: "中国",
+        AU: "澳洲",
+    },
+    charts: {
+        tooltipAge: "{{age}}岁",
+        retirementMarker: "退休节点",
+        assetBalance: "资产余额",
+        retirementAgeAxis: "退休年龄",
+        retireAt: "{{age}}岁退休",
+        savingsPressureTitle: "每月储蓄压力",
+        savingsPressureLegend: "每月储蓄压力（右轴）",
+        clickToSwitch: "点击图表切换方案",
+        salaryGrowthNote: "当前阶段薪资实际增速：+{{rate}}% 每年",
+    },
 };
 
 export const en: Translation = {
@@ -95,6 +132,8 @@ export const en: Translation = {
         subtitle: "Financial Independence Research",
         aiAdvisor: "AI Advisor",
         analyzing: "Building your financial model...",
+        switchLanguage: "Switch Language",
+        aiError: "Unable to fetch AI advice. Please confirm your API key and network connection.",
     },
     control: {
         identity: "Identity",
@@ -109,6 +148,9 @@ export const en: Translation = {
         superBalance: "Super Balance",
         superContribution: "Super Guarantee %",
         wageGrowth: "Wage Growth",
+        workYears: "Working Years",
+        retirementDuration: "Retirement Phase",
+        superExpenseHint: "Expenses include rent/mortgage. Super is calculated separately.",
     },
     dashboard: {
         targetWealth: "FIRE Target (Purchasing Power)",
@@ -130,5 +172,20 @@ export const en: Translation = {
         age: "y.o.",
         currency: "AUD",
         currencySymbol: "$",
+    },
+    regions: {
+        CN: "China",
+        AU: "Australia",
+    },
+    charts: {
+        tooltipAge: "Age {{age}}",
+        retirementMarker: "Retirement Marker",
+        assetBalance: "Portfolio Balance",
+        retirementAgeAxis: "Retirement Age",
+        retireAt: "Retire at {{age}}",
+        savingsPressureTitle: "Monthly savings pressure",
+        savingsPressureLegend: "Monthly savings pressure (right axis)",
+        clickToSwitch: "Click chart to switch scenarios",
+        salaryGrowthNote: "Real salary growth at this stage: +{{rate}}% per year",
     },
 };

@@ -1,10 +1,12 @@
 import { calculateTrendAnalysis } from '../utils/finance';
 import { FinancialParams } from '../types';
+import { Region } from '../locales';
 
-type TrendRequest = { id: number; params: FinancialParams };
+type TrendRequest = { id: number; params: FinancialParams; region?: Region };
 
 self.onmessage = (e: MessageEvent<TrendRequest>) => {
-    const { id, params } = e.data;
+    const { id, params, region } = e.data;
+    const activeRegion: Region = region || 'CN';
 
     try {
         const trendData = calculateTrendAnalysis(
@@ -12,7 +14,9 @@ self.onmessage = (e: MessageEvent<TrendRequest>) => {
             params.deathAge,
             params.monthlyExpense,
             params.inflationRate,
-            params.investmentReturnRate
+            params.investmentReturnRate,
+            activeRegion,
+            params.superBalance || 0
         );
 
         self.postMessage({ success: true, id, data: trendData });

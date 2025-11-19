@@ -54,21 +54,10 @@ const calculateFIRE_CN = (params: FinancialParams, options: { includeTrend?: boo
 const calculateFIRE_AU = (params: FinancialParams, options: { includeTrend?: boolean }): CalculationResult => {
   const {
     currentAge, retirementAge, deathAge, monthlyExpense, inflationRate, investmentReturnRate,
-    superBalance = 0, superContributionRate = 11.5
+    superBalance = 0
   } = params;
 
   const PRESERVATION_AGE = 60;
-  const SUPER_TAX_RATE = 0.15; // Tax on earnings inside Super (simplified)
-  const SUPER_RETURN_RATE = investmentReturnRate; // Assume similar asset allocation but taxed differently? 
-  // Actually, Super earnings are taxed at 15%, but capital gains effectively 10%. 
-  // Outside Super is marginal tax. 
-  // For simplicity in this "Maximum Effort" UI, we assume the input Return Rate is "After Tax" for simplicity, 
-  // OR we apply a tax drag. Let's assume the input rate is the raw market return.
-  // Outside Super Tax Drag: ~30% tax on gains? Let's assume 1.5% drag.
-  // Inside Super Tax Drag: 15% tax on gains.
-
-  // To keep it comparable to CN logic (where return is "net"), let's use the input rate as "Outside Super Net Return"
-  // and boost Super return slightly? No, let's keep it simple: Same return rate.
 
   // --- Phase 1: Decumulation Needs ---
   // We need to survive from Retirement -> Death.
@@ -76,7 +65,7 @@ const calculateFIRE_AU = (params: FinancialParams, options: { includeTrend?: boo
   // Super opens at 60.
 
   // A. Calculate Total Capital Need (PV) at Retirement Age if it was all one pot
-  const { nominal: totalNominalNeeded, pv: totalPVNeeded, simulation } = calculateRetirementNeeds(
+  const { simulation } = calculateRetirementNeeds(
     currentAge, retirementAge, deathAge, monthlyExpense, inflationRate, investmentReturnRate
   );
 
@@ -104,59 +93,52 @@ const calculateFIRE_AU = (params: FinancialParams, options: { includeTrend?: boo
   // IF Super is too much, we still need Liquid for pre-60.
 
   // 1. Project Current Super Balance to Retirement Age
-  const monthsToRetire = Math.max(0, (retirementAge - currentAge) * 12);
   const monthlyReturn = Math.pow(1 + investmentReturnRate / 100, 1 / 12) - 1;
-  const monthlyInflation = Math.pow(1 + inflationRate / 100, 1 / 12) - 1;
 
-  // Future Value of existing Super at Retirement
-  let projectedSuper = superBalance * Math.pow(1 + monthlyReturn, monthsToRetire);
+  const accessAge = Math.max(retirementAge, PRESERVATION_AGE);
+  const monthsToSuperAccess = Math.max(0, (accessAge - currentAge) * 12);
+  const projectedSuperAtAccess = superBalance * Math.pow(1 + monthlyReturn, monthsToSuperAccess);
 
-  // Add Future Super Contributions? 
-  // We can't calculate them without Salary.
-  // Let's assume the "Monthly Savings" result we return INCLUDES Super contributions.
-  // And we split that savings based on the `superContributionRate`.
-  // e.g. if Rate is 11.5% and we assume Salary ~ Savings/0.3? Too complex.
-
-  // SIMPLIFIED AU MODEL:
-  // We ignore the "Mandatory" nature. We just say:
-  // You have `superBalance` already.
-  // You need to save $S$ per month.
-  // We assume this $S$ is accessible (Liquid).
-  // We check if (Liquid + Projected Super) > Total Need.
-  // AND we check if Liquid > Bridge Need (Retire -> 60).
-
-  // Bridge Need (Retire -> 60)
+  // Bridge Need (Retire -> Preservation Age)
   let bridgeCapitalNeeded = 0;
   if (retirementAge < PRESERVATION_AGE) {
-    const { nominal } = calculateRetirementNeeds(
-      currentAge, retirementAge, PRESERVATION_AGE, monthlyExpense, inflationRate, investmentReturnRate
-    );
-    bridgeCapitalNeeded = nominal;
+    const bridgeEndAge = Math.min(PRESERVATION_AGE, deathAge);
+    if (bridgeEndAge > retirementAge) {
+      const { nominal } = calculateRetirementNeeds(
+        currentAge,
+        retirementAge,
+        bridgeEndAge,
+        monthlyExpense,
+        inflationRate,
+        investmentReturnRate
+      );
+      bridgeCapitalNeeded = nominal;
+    }
   }
 
-  // Post-60 Need
-  // We calculate need from 60 to Death.
-  // But we need to discount it back to Retirement Age.
-  const { nominal: post60NeedAt60 } = calculateRetirementNeeds(
-    currentAge, PRESERVATION_AGE, deathAge, monthlyExpense, inflationRate, investmentReturnRate
-  );
-  // Discount to Retirement Age
-  const monthsBridge = Math.max(0, (PRESERVATION_AGE - retirementAge) * 12);
-  const post60NeedAtRetirement = post60NeedAt60 / Math.pow(1 + monthlyReturn, monthsBridge);
+  // Post-preservation need (accessible once Super unlocks)
+  let postNeedAtAccess = 0;
+  if (deathAge > accessAge) {
+    const { nominal } = calculateRetirementNeeds(
+      currentAge,
+      accessAge,
+      deathAge,
+      monthlyExpense,
+      inflationRate,
+      investmentReturnRate
+    );
+    postNeedAtAccess = nominal;
+  }
 
-  // Total Need at Retirement
-  const totalNeedAtRetirement = bridgeCapitalNeeded + post60NeedAtRetirement;
+  const monthsBetweenRetirementAndAccess = Math.max(0, (accessAge - retirementAge) * 12);
+  const discountFactor = Math.pow(1 + monthlyReturn, monthsBetweenRetirementAndAccess);
+  const discountedPostNeed = postNeedAtAccess / (discountFactor || 1);
+  const projectedSuperAtRetirement = projectedSuperAtAccess / (discountFactor || 1);
 
-  // Net Need = Total Need - Projected Super
-  // (If Super > Post60Need, it can help with Bridge? No, locked. Wait, at 60 it unlocks. So yes, it helps with Post60).
-  // If Super > Post60Need, the excess is available at 60.
-  // But we need money BEFORE 60.
-  // So:
-  // 1. Liquid must cover Bridge (Retire -> 60).
-  // 2. Liquid + Super must cover Total (Retire -> Death).
-
-  // So Required Liquid = Max( BridgeNeed, TotalNeed - ProjectedSuper ).
-  const requiredLiquidWealth = Math.max(bridgeCapitalNeeded, totalNeedAtRetirement - projectedSuper);
+  const requiredLiquidWealth = bridgeCapitalNeeded + Math.max(0, discountedPostNeed - projectedSuperAtRetirement);
+  const totalTargetAtRetirement = requiredLiquidWealth + projectedSuperAtRetirement;
+  const inflationDiscount = Math.pow(1 + inflationRate / 100, Math.max(0, retirementAge - currentAge));
+  const requiredWealthPV = totalTargetAtRetirement / (inflationDiscount || 1);
 
   // Now solve for Monthly Savings to reach RequiredLiquidWealth
   const { initialMonthlySavings, accumulationData, success } = calculateAccumulationPath(
@@ -169,8 +151,8 @@ const calculateFIRE_AU = (params: FinancialParams, options: { includeTrend?: boo
   ) : [];
 
   return {
-    requiredWealth: Math.round(requiredLiquidWealth + projectedSuper), // Total Net Worth needed
-    requiredWealthPV: Math.round((requiredLiquidWealth + projectedSuper) / Math.pow(1 + inflationRate / 100, retirementAge - currentAge)),
+    requiredWealth: Math.round(totalTargetAtRetirement),
+    requiredWealthPV: Math.round(requiredWealthPV),
     firstYearSavingsMonthly: Math.round(initialMonthlySavings),
     simulationData: simulation,
     accumulationData, // This only shows Liquid accumulation. Super is hidden? Let's add Super to chart?
