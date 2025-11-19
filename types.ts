@@ -3,9 +3,12 @@ export interface FinancialParams {
   currentAge: number;
   retirementAge: number;
   deathAge: number;
-  monthlyExpense: number; // In CNY, current value
+  monthlyExpense: number; // Current value
   inflationRate: number; // Percentage
   investmentReturnRate: number; // Percentage
+  // AU Specific
+  superBalance?: number; // Current Superannuation Balance
+  superContributionRate?: number; // Employer Guarantee + Voluntary (e.g. 11.5%)
 }
 
 export interface SimulationYear {
