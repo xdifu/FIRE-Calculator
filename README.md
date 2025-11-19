@@ -13,12 +13,9 @@
   ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square)
   ![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?style=flat-square)
   ![Tailwind](https://img.shields.io/badge/Tailwind-3.4-38B2AC?style=flat-square)
-</div>
-
-<br />
-
-<div align="center">
-  <img src="./assets/hero.png" alt="FIRE Lab Interface" width="100%">
+  <br />
+  <br />
+  <a href="https://free-fire-calculator.vercel.app/" target="_blank"><strong>Live Demo → free-fire-calculator.vercel.app</strong></a>
 </div>
 
 <br />
