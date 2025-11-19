@@ -19,7 +19,19 @@ const RangeInput = ({
 }: {
   label: string; value: number; min: number; max: number; step: number; onChange: (val: number) => void; unit?: string; variant?: "default" | "indigo" | "emerald" | "rose"
 }) => {
-  const percentage = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+  // Local state for instant visual feedback during drag
+  const [localValue, setLocalValue] = React.useState(value);
+  const [isDragging, setIsDragging] = React.useState(false);
+
+  // Sync local value when prop changes (from external sources)
+  React.useEffect(() => {
+    if (!isDragging) {
+      setLocalValue(value);
+    }
+  }, [value, isDragging]);
+
+  const displayValue = isDragging ? localValue : value;
+  const percentage = Math.min(100, Math.max(0, ((displayValue - min) / (max - min)) * 100));
 
   const colors = {
     default: { text: 'text-slate-700', active: '#64748b' },
@@ -29,19 +41,38 @@ const RangeInput = ({
   };
   const theme = colors[variant];
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = Number(e.target.value);
+    setLocalValue(newValue);
+    setIsDragging(true);
+  };
+
+  const handleCommit = () => {
+    if (isDragging) {
+      onChange(localValue);
+      setIsDragging(false);
+    }
+  };
+
   return (
     <div className="mb-5 group select-none">
       <div className="flex justify-between items-center mb-2">
         <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</label>
         <div className="flex items-baseline gap-0.5">
-          <span className={`text-lg font-mono font-bold ${theme.text}`}>{value}</span>
+          <span className={`text-lg font-mono font-bold ${theme.text}`}>{displayValue}</span>
           <span className="text-xs font-medium text-slate-400">{unit}</span>
         </div>
       </div>
       <div className="relative w-full h-4 flex items-center cursor-pointer">
         <input
-          type="range" min={min} max={max} step={step} value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={displayValue}
+          onChange={handleChange}
+          onMouseUp={handleCommit}
+          onTouchEnd={handleCommit}
           className="w-full absolute z-20 opacity-0 h-full cursor-pointer"
         />
         <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden relative z-10">
