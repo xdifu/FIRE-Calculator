@@ -77,19 +77,22 @@ const calculateRetirementNeeds = (
 ) => {
   const monthlyInflation = Math.pow(1 + inflationRate / 100, 1 / 12) - 1;
   const monthlyReturn = Math.pow(1 + returnRate / 100, 1 / 12) - 1;
-  
+
   const monthsToRetire = Math.max(0, (retirementAge - currentAge) * 12);
   const monthsInRetirement = (deathAge - retirementAge) * 12;
-  
+
   // Expense at the very first month of retirement (Nominal)
   const initialRetirementMonthlyExpense = currentMonthlyExpense * Math.pow(1 + monthlyInflation, monthsToRetire);
 
   // Binary Search for the exact required capital
   let low = 0;
-  let high = currentMonthlyExpense * 12 * 100 * 10; // Upper bound: 1000 years of expenses
+  // Fix: Upper bound must account for inflation over the accumulation period. 
+  // 1000 years of expenses is safe, but we need to project it to Future Value first to be safe against high inflation.
+  const futureMonthlyExpense = initialRetirementMonthlyExpense; // This is already FV at retirement
+  let high = futureMonthlyExpense * 12 * 1000; // 1000 years of FV expenses
   let requiredWealth = 0;
-  
-  for(let i = 0; i < 40; i++) { // 40 iterations give extreme float precision
+
+  for (let i = 0; i < 40; i++) { // 40 iterations give extreme float precision
     const mid = (low + high) / 2;
     if (simulateDepletionMonthly(mid, initialRetirementMonthlyExpense, monthsInRetirement, monthlyInflation, monthlyReturn)) {
       requiredWealth = mid;
@@ -113,10 +116,10 @@ const calculateRetirementNeeds = (
       // Withdrawal at start of month
       balance -= currentMonthlyExp;
       yearTotalExp += currentMonthlyExp;
-      
+
       // Growth at end of month
       balance *= (1 + monthlyReturn);
-      
+
       // Inflation for next month
       currentMonthlyExp *= (1 + monthlyInflation);
     }
@@ -145,7 +148,7 @@ const simulateDepletionMonthly = (
 ): boolean => {
   let balance = startPrincipal;
   let expense = startExpense;
-  
+
   for (let m = 0; m < totalMonths; m++) {
     balance -= expense;
     if (balance < -1) return false; // Depleted
@@ -173,7 +176,7 @@ const calculateAccumulationPath = (
 
   const monthlyInflation = Math.pow(1 + inflationRate / 100, 1 / 12) - 1;
   const monthlyReturn = Math.pow(1 + returnRate / 100, 1 / 12) - 1;
-  
+
   // We need to solve equation: Target = S_base * Sum( WageMult_m * (1+r)^(MonthsLeft) )
   let discountFactorSum = 0;
   let currentWageMultiplier = 1.0;
@@ -182,17 +185,17 @@ const calculateAccumulationPath = (
   for (let m = 0; m < totalMonths; m++) {
     // Update Wage Multiplier annually (every 12 months)
     if (m > 0 && m % 12 === 0) {
-       const currentYearAge = currentAge + Math.floor(m / 12);
-       const realGrowth = getRealWageGrowthRate(currentYearAge);
-       const annualNominalGrowth = (1 + realGrowth) * (1 + inflationRate/100) - 1;
-       currentWageMultiplier *= (1 + annualNominalGrowth);
+      const currentYearAge = currentAge + Math.floor(m / 12);
+      const realGrowth = getRealWageGrowthRate(currentYearAge);
+      const annualNominalGrowth = (1 + realGrowth) * (1 + inflationRate / 100) - 1;
+      currentWageMultiplier *= (1 + annualNominalGrowth);
     }
 
     // Future Value Factor for this specific month's contribution
     // Contribution happens at END of month (conservative assumption for savings)
-    const monthsUntilRetirement = totalMonths - 1 - m; 
+    const monthsUntilRetirement = totalMonths - 1 - m;
     const growthFactor = Math.pow(1 + monthlyReturn, monthsUntilRetirement);
-    
+
     discountFactorSum += currentWageMultiplier * growthFactor;
   }
 
@@ -202,37 +205,40 @@ const calculateAccumulationPath = (
   const accumulationData: AccumulationPoint[] = [];
   let totalPrincipal = 0;
   let currentBalance = 0;
-  
+
   // Re-run the simulation loop to populate data
   let wageMult = 1.0;
 
   for (let y = 0; y <= yearsToGrow; y++) {
     const age = currentAge + y;
-    
+
     // Snapshot at beginning of year (before this year's contributions) for chart
     // Except for the last year (Retirement Age), where we show the final result.
-    
+
     if (y > 0) {
-       // We need to simulate the 12 months passed
-       for (let m = 0; m < 12; m++) {
-          const absoluteMonthIndex = (y - 1) * 12 + m;
-          
-          // Update wage multiplier at start of year (already done outside inner loop logic implicitly via lookahead, 
-          // but let's do it cleaner: Wage is set for the year).
-          
-          const monthlyContribution = initialMonthlySavings * wageMult;
-          
-          // Growth
-          currentBalance *= (1 + monthlyReturn);
-          // Contribution
-          currentBalance += monthlyContribution;
-          totalPrincipal += monthlyContribution;
-       }
-       
-       // Prepare Wage Mult for NEXT year loop
-       const realGrowth = getRealWageGrowthRate(age - 1);
-       const annualNominalGrowth = (1 + realGrowth) * (1 + inflationRate/100) - 1;
-       wageMult *= (1 + annualNominalGrowth);
+      // We need to simulate the 12 months passed
+      for (let m = 0; m < 12; m++) {
+        const absoluteMonthIndex = (y - 1) * 12 + m;
+
+        // Update wage multiplier at start of year (already done outside inner loop logic implicitly via lookahead, 
+        // but let's do it cleaner: Wage is set for the year).
+
+        const monthlyContribution = initialMonthlySavings * wageMult;
+
+        // Growth
+        currentBalance *= (1 + monthlyReturn);
+        // Contribution
+        currentBalance += monthlyContribution;
+        totalPrincipal += monthlyContribution;
+      }
+
+      // Prepare Wage Mult for NEXT year loop
+      // Fix: Use 'age' (currentAge + y) to match the solver's logic (currentAge + floor(m/12))
+      // Solver at m=12 (start of year 2) uses currentAge + 1.
+      // Here at end of y=1 (start of year 2), age is currentAge + 1. So we should use age.
+      const realGrowth = getRealWageGrowthRate(age);
+      const annualNominalGrowth = (1 + realGrowth) * (1 + inflationRate / 100) - 1;
+      wageMult *= (1 + annualNominalGrowth);
     }
 
     accumulationData.push({
@@ -245,10 +251,10 @@ const calculateAccumulationPath = (
     });
   }
 
-  return { 
-    initialMonthlySavings, 
-    accumulationData, 
-    success: initialMonthlySavings < Infinity && !isNaN(initialMonthlySavings) 
+  return {
+    initialMonthlySavings,
+    accumulationData,
+    success: initialMonthlySavings < Infinity && !isNaN(initialMonthlySavings)
   };
 };
 
@@ -265,9 +271,9 @@ const calculateTrendAnalysis = (
   returnRate: number
 ): TrendPoint[] => {
   const points: TrendPoint[] = [];
-  
-  // Calculate for retirement ages 30 to 60
-  for (let rAge = 30; rAge <= 60; rAge++) {
+
+  // Calculate for retirement ages 30 to 65 (Fix: Match UI slider max)
+  for (let rAge = 30; rAge <= 65; rAge++) {
     if (rAge <= currentAge) continue;
 
     // Reuse the logic
@@ -282,11 +288,11 @@ const calculateTrendAnalysis = (
 
     // Also calculate savings pressure (reverse calc)
     const { initialMonthlySavings } = calculateAccumulationPath(
-        currentAge,
-        rAge,
-        nominal,
-        inflationRate,
-        returnRate
+      currentAge,
+      rAge,
+      nominal,
+      inflationRate,
+      returnRate
     );
 
     points.push({
